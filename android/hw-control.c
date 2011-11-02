@@ -41,6 +41,9 @@
 #define  T(...)   ((void)0)
 #endif
 
+#define QEMU_MSG_FILE "/tmp/qemu_msg.txt"
+FILE *hw_control_fp = NULL;
+
 typedef struct {
     void*                  client;
     AndroidHwControlFuncs  client_funcs;
@@ -90,6 +93,17 @@ if_starts_with( uint8_t*  buf, int buflen, const char*  prefix )
     return (uint8_t*)buf + prefixlen;
 }
 
+static void hw_control_process_msg(uint8_t* query, int querylen)
+{
+
+    if(hw_control_fp == NULL)
+        return;
+
+    fprintf(hw_control_fp, "%s\n", query);
+    fflush(hw_control_fp);
+    
+    return;
+}
 
 static void
 hw_control_do_query( HwControl*  h,
@@ -100,6 +114,8 @@ hw_control_do_query( HwControl*  h,
 
     T("%s: query %4d '%.*s'", __FUNCTION__, querylen, querylen, query );
 
+    hw_control_process_msg(query, querylen);    
+    
     q = if_starts_with( query, querylen, "power:light:brightness:" );
     if (q != NULL) {
         if (h->client_funcs.light_brightness && android_hw->hw_lcd_backlight) {
@@ -129,6 +145,12 @@ hw_control_init( HwControl*                    control,
                                                     control,
                                                     _hw_control_qemud_connect,
                                                     NULL, NULL);
+
+    hw_control_fp = fopen(QEMU_MSG_FILE, "wb");
+    if(hw_control_fp == NULL)
+    {
+      D("%s: Failed to create QEMU device message file %s", __FUNCTION__, QEMU_MSG_FILE);
+    }
 }
 
 const AndroidHwControlFuncs  defaultControls = {
